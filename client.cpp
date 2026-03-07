@@ -45,7 +45,7 @@ void Client::readyRead()
     emit transferReceivedMessage(rawReadData);
 }
 
-void Client::writeToHost(const QByteArray& iMessage)
+void Client::write(const QByteArray& iMessage)
 {
     qDebug() << "iMessage: " << iMessage;
     mpSocket->write(iMessage);

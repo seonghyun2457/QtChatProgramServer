@@ -20,9 +20,24 @@ public:
 
 signals:
 
+private slots:
+    // ComboBox
+    void on_cbIP_currentTextChanged(const QString &arg1);
+
+    // LineEdit
+    void on_lePort_textChanged(const QString &arg1);
+
+    // Buttons
+    void on_btnStart_clicked();
+    void on_btnStop_clicked();
+    void on_btnQuit_clicked();
+
 private:
     // Server
     Server mServer;
+    QString mIPv4;
+    QString mPort;
+
 
     // Widgets
     std::unique_ptr<Ui::ServerWindow> mUi;

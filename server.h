@@ -17,10 +17,11 @@ public:
     explicit Server(QObject *parent = nullptr);
     virtual ~Server();
 
+    QList<QHostAddress> getIPv4Addresses() const;
 signals:
 
 public slots:
-    void start(const quint16 iPort);
+    void start(const QString& iAddress, const quint16 iPort);
     void quit();
 
 private slots:

@@ -7,32 +7,35 @@
 Server::Server(QObject *parent)
     : QTcpServer{parent}
 {
-    /*
-    int idleThreadCount = QThread::idealThreadCount();
-    mPool.setMaxThreadCount(idleThreadCount);
-    qInfo () << "Max thread count: " << mPool.maxThreadCount();
-*/
+
 }
 
 Server::~Server()
 {
-    quit();
+    if (isListening()) {
+        quit();
+    }
 }
 
-void Server::start(quint16 iPort)
+QList<QHostAddress> Server::getIPv4Addresses() const
 {
-    QHostAddress connectingAddress;
+    QList<QHostAddress> ipv4Addresses;
 
     QList<QHostAddress> hostAddresses = QNetworkInterface::allAddresses();
-    for (size_t i = 0; i < hostAddresses.size(); ++i) {
-        if (hostAddresses[i].protocol() == QAbstractSocket::IPv4Protocol && !hostAddresses[i].isLoopback()) {
-            connectingAddress = hostAddresses[i];
-            break;
+    for (QHostAddress& address : hostAddresses) {
+        if (address.protocol() == QAbstractSocket::IPv4Protocol && !address.isLoopback()) {
+            ipv4Addresses.push_back(address);
         }
     }
 
+    return ipv4Addresses;
+}
+
+void Server::start(const QString &iAddress, const quint16 iPort)
+{
+    QHostAddress connectingAddress(iAddress);
     if (connectingAddress.isNull()) {
-        qCritical() << "Couldn't find IPv4 address";
+        qCritical() << iAddress << " isn't valid.";
         return;
     }
 
@@ -83,8 +86,8 @@ void Server::connectClient(const qintptr iSocketDescriptor)
     // CONNECT
     QObject::connect(pClientThread.get(), &QThread::finished, this, &Server::disconnectClient);
     for (std::unique_ptr<ClientThread>& aClientThread : mClientThreads) {
-        QObject::connect(pClientThread->getClient(), &Client::transferReceivedMessage, aClientThread->getClient(), &Client::writeToHost, Qt::QueuedConnection);
-        QObject::connect(aClientThread->getClient(), &Client::transferReceivedMessage, pClientThread->getClient(), &Client::writeToHost, Qt::QueuedConnection);
+        QObject::connect(pClientThread->getClient(), &Client::transferReceivedMessage, aClientThread->getClient(), &Client::write, Qt::QueuedConnection);
+        QObject::connect(aClientThread->getClient(), &Client::transferReceivedMessage, pClientThread->getClient(), &Client::write, Qt::QueuedConnection);
     }
 
     // Run client thread

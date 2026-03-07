@@ -18,7 +18,7 @@ signals:
 
 public slots:
     void run();
-    void writeToHost(const QByteArray& iMessage);
+    void write(const QByteArray& iMessage);
 
 private slots:
     void connected();
