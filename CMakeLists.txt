@@ -9,7 +9,7 @@ qt_add_executable(QtChatProgramServer
     WIN32 MACOSX_BUNDLE
     main.cpp
     server.h server.cpp
-    client.h client.cpp
+    clientsocket.h clientsocket.cpp
     clientthread.h clientthread.cpp
     serverwindow.h serverwindow.cpp serverwindow.ui
 )

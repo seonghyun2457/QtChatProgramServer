@@ -19,7 +19,7 @@ ServerWindow::ServerWindow(QWidget *parent)
     mUi->setupUi(this);
 
     bool firstIPv4Selected = false;
-    QList<QHostAddress> ipv4Addresses = mServer.getIPv4Addresses();
+    const QList<QHostAddress> ipv4Addresses = mServer.getIPv4Addresses();
     for (const QHostAddress& ipv4 : ipv4Addresses) {
         mUi->cbIP->addItem(ipv4.toString());
         if (!firstIPv4Selected) {

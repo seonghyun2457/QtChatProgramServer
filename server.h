@@ -6,9 +6,8 @@
 #include <QThreadPool>
 #include <QThread>
 
-#include "client.h"
+#include "clientsocket.h"
 #include "clientthread.h"
-
 
 class Server : public QTcpServer
 {
@@ -17,7 +16,7 @@ public:
     explicit Server(QObject *parent = nullptr);
     virtual ~Server();
 
-    QList<QHostAddress> getIPv4Addresses() const;
+    const QList<QHostAddress> getIPv4Addresses() const;
 signals:
 
 public slots:
@@ -26,15 +25,14 @@ public slots:
 
 private slots:
     void disconnectClient();
+    void broadcast(const QByteArray& iMessage);
 
 private:
-    std::list<std::unique_ptr<ClientThread>> mClientThreads;
+    std::list<ClientThread*> mClientThreads;
 
 protected:
     virtual void incomingConnection(qintptr socketDescriptor) override;
 
-private:
-    void connectClient(const qintptr iSocketDescriptor);
 };
 
 #endif // SERVER_H
