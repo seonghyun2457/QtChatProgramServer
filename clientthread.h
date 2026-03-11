@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QThread>
 
-#include "client.h"
+#include "clientsocket.h"
 
 class ClientThread : public QThread
 {
@@ -13,11 +13,11 @@ public:
     explicit ClientThread(qintptr socketDescriptor, QObject *parent = nullptr);
     virtual ~ClientThread() = default;
 
-    Client* getClient() const;
+    ClientSocket* getClientSocket() const;
 signals:
 
 private:
-    std::unique_ptr<Client> mClient;
+    ClientSocket* mClientSocket;
 };
 
 #endif // CLIENTTHREAD_H

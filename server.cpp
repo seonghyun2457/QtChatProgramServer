@@ -17,7 +17,7 @@ Server::~Server()
     }
 }
 
-QList<QHostAddress> Server::getIPv4Addresses() const
+const QList<QHostAddress> Server::getIPv4Addresses() const
 {
     QList<QHostAddress> ipv4Addresses;
 
@@ -49,50 +49,92 @@ void Server::start(const QString &iAddress, const quint16 iPort)
 
 void Server::quit()
 {
+    // Disconnect clients
+    for (ClientThread* aClientThread : mClientThreads) {
+        ClientSocket* pSocket = aClientThread->getClientSocket();
+
+        // Disconnect all signals
+        pSocket->disconnect();
+
+        // Abort socket
+        QMetaObject::invokeMethod(pSocket, [pSocket]() { pSocket->abort(); }, Qt::BlockingQueuedConnection);
+
+        // Delete Client Thread when thread is termianted
+        QObject::connect(aClientThread, &QThread::finished, aClientThread, &QObject::deleteLater);
+
+        // Terminate thread
+        aClientThread->quit();
+
+        // Wait until thread is terminated
+        aClientThread->wait();
+
+        qDebug() << "A client disconnected";
+    }
+
+    // clear thread list
+    mClientThreads.clear();
+
+    // Close server
     close();
-    qInfo() << "Server closed";
+    qDebug() << "Server closed";
 }
 
 void Server::disconnectClient()
 {
-    QObject* signalSender = sender();
-    qDebug() << "signal sender: " << signalSender;
+    ClientSocket* pClientSocket = static_cast<ClientSocket*>(sender());
 
-    ClientThread* pClientThread = static_cast<ClientThread*>(signalSender);
     auto clientThreadIt = mClientThreads.begin();
     while (clientThreadIt != mClientThreads.end()) {
-        if (clientThreadIt->get() == pClientThread) {
-            qDebug() << "signal sender: " << signalSender << " removed.";
-            mClientThreads.erase(clientThreadIt++);
+        if ((*clientThreadIt)->getClientSocket() == pClientSocket) {
+
+            ClientThread* pClientThread = *clientThreadIt;
+            qDebug() << "Client socket disconnected. Removing from list.";
+
+            mClientThreads.erase(clientThreadIt);
+
+            // Delete Client Thread when thread is termianted
+            QObject::connect(pClientThread, &QThread::finished, pClientThread, &QObject::deleteLater);
+
+            // Terminate thread
+            pClientThread->quit();
+            break;
         }
         else {
             ++clientThreadIt;
         }
     }
+}
 
+void Server::broadcast(const QByteArray &iMessage)
+{
+    qDebug() << "Broadcasting message to all clients:" << iMessage;
+
+    ClientSocket* pClientSocket = static_cast<ClientSocket*>(sender());
+
+    for (const auto& clientThread : mClientThreads) {
+        if (clientThread->getClientSocket() != pClientSocket) {
+
+            // call send method in different thread
+            QMetaObject::invokeMethod(clientThread->getClientSocket(), "send", Qt::QueuedConnection, Q_ARG(QByteArray, iMessage));
+        }
+    }
 }
 
 void Server::incomingConnection(qintptr socketDescriptor)
 {
     qInfo() << "Incomming connection " << socketDescriptor << " on " << QThread::currentThread();
-    connectClient(socketDescriptor);
-}
 
-void Server::connectClient(const qintptr iSocketDescriptor)
-{
     // Create a new client thread
-    std::unique_ptr<ClientThread> pClientThread = std::make_unique<ClientThread>(iSocketDescriptor);
+    ClientThread* pClientThread = new ClientThread(socketDescriptor);
 
     // CONNECT
-    QObject::connect(pClientThread.get(), &QThread::finished, this, &Server::disconnectClient);
-    for (std::unique_ptr<ClientThread>& aClientThread : mClientThreads) {
-        QObject::connect(pClientThread->getClient(), &Client::transferReceivedMessage, aClientThread->getClient(), &Client::write, Qt::QueuedConnection);
-        QObject::connect(aClientThread->getClient(), &Client::transferReceivedMessage, pClientThread->getClient(), &Client::write, Qt::QueuedConnection);
-    }
+    QObject::connect(pClientThread->getClientSocket(), &QTcpSocket::disconnected, this, &Server::disconnectClient);
+    QObject::connect(pClientThread->getClientSocket(), &ClientSocket::broadcast, this, &Server::broadcast, Qt::QueuedConnection);
 
     // Run client thread
     pClientThread->start();
 
     // Move new client thread to thread list
-    mClientThreads.push_back(std::move(pClientThread));
+    mClientThreads.push_back(pClientThread);
 }
+

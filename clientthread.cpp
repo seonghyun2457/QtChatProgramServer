@@ -2,19 +2,17 @@
 
 ClientThread::ClientThread(qintptr socketDescriptor, QObject *parent)
     : QThread{parent}
-    , mClient(std::make_unique<Client>(socketDescriptor))
+    , mClientSocket(new ClientSocket())
 {
-    if (mClient == nullptr) {
-        return;
-    }
-
     setObjectName("Client thread");
 
-    QObject::connect(this, &QThread::started, mClient.get(), &Client::run);
-    mClient->moveToThread(this);
+    mClientSocket->moveToThread(this);
+
+    QObject::connect(this, &QThread::started, mClientSocket, [this, socketDescriptor](){ mClientSocket->initSocket(socketDescriptor); });
+    connect(this, &QThread::finished, mClientSocket, &QObject::deleteLater);
 }
 
-Client* ClientThread::getClient() const
+ClientSocket* ClientThread::getClientSocket() const
 {
-    return mClient.get();
+    return mClientSocket;
 }
