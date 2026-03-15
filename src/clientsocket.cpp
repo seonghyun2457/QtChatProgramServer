@@ -92,14 +92,21 @@ void ClientSocket::stateChanged(QAbstractSocket::SocketState socketState)
 
 void ClientSocket::readyRead()
 {
-    qDebug() << "Data from: " << sender() << " bytes: " << bytesAvailable();
-    QByteArray rawReadData = readAll();
-
-    emit broadcast(rawReadData);
-
     // Reset HeartBeat
     mHeartBeatCount = 0;
     mHeartBeatTimer->start(mHEARTBEAT_INTERVAL_SECOND); // mHEARTBEAT_INTERVAL_SECOND invertal
+
+    qDebug() << "Data from: " << sender() << " bytes: " << bytesAvailable();
+    QByteArray rawReadData = readAll();
+
+    QString message = QString::fromUtf8(rawReadData);
+    qDebug() << "message: " << message;
+
+    if (message == "Client: heartbeat pong\n") {
+        return;
+    }
+
+    emit broadcast(rawReadData);
 }
 
 void ClientSocket::sendHeartBeat()
