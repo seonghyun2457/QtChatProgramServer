@@ -34,6 +34,7 @@ private slots:
     void sendHeartBeat();
 
 private:
+    const uint32_t mHEARTBEAT_INTERVAL_SECOND;
     QTimer* mHeartBeatTimer;
     uint16_t mHeartBeatCount;
 };

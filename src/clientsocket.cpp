@@ -8,6 +8,7 @@ ClientSocket::ClientSocket(QObject *parent)
     : QTcpSocket{parent}
     , mHeartBeatTimer(nullptr)
     , mHeartBeatCount(0)
+    , mHEARTBEAT_INTERVAL_SECOND(10 * 1000)
 {
     // CONNECT
     connect(this, &QTcpSocket::connected, this, &ClientSocket::connected);
@@ -19,8 +20,7 @@ ClientSocket::ClientSocket(QObject *parent)
 
 ClientSocket::~ClientSocket()
 {
-    delete mHeartBeatTimer;
-    mHeartBeatTimer = nullptr;
+
 }
 
 
@@ -34,20 +34,26 @@ void ClientSocket::initSocket(const qintptr socketDescriptor)
     // Set Socket Descriptor
     if (!setSocketDescriptor(socketDescriptor)) {
         qCritical() << errorString();
+        emit disconnected();
         return;
     }
 
     if (state() != QAbstractSocket::SocketState::ConnectedState) {
         qCritical() << "Socket isn't connected. Current State: " << state();
+        emit disconnected();
         return;
     }
 
-
     // Set HeartBeat
-    mHeartBeatCount = 0;
-    mHeartBeatTimer = new QTimer();
+    mHeartBeatTimer = new QTimer(this);
+    if (mHeartBeatTimer == nullptr) {
+        qCritical() << "Timer is null!";
+        emit disconnected();
+        return;
+    }
+
     QObject::connect(mHeartBeatTimer, &QTimer::timeout, this, &ClientSocket::sendHeartBeat);
-    mHeartBeatTimer->start(10 * 1000); // 10 seconds invertal
+    mHeartBeatTimer->start(mHEARTBEAT_INTERVAL_SECOND); // mHEARTBEAT_INTERVAL_SECOND invertal
 
     qDebug() << "Hearbeat timer started (10 seconds interval)";
     qDebug() << "TCP socket opens on a thread:" << QThread::currentThread();
@@ -86,13 +92,14 @@ void ClientSocket::stateChanged(QAbstractSocket::SocketState socketState)
 
 void ClientSocket::readyRead()
 {
-    // Reset HeartBeat count
-    mHeartBeatCount = 0;
-
     qDebug() << "Data from: " << sender() << " bytes: " << bytesAvailable();
     QByteArray rawReadData = readAll();
 
     emit broadcast(rawReadData);
+
+    // Reset HeartBeat
+    mHeartBeatCount = 0;
+    mHeartBeatTimer->start(mHEARTBEAT_INTERVAL_SECOND); // mHEARTBEAT_INTERVAL_SECOND invertal
 }
 
 void ClientSocket::sendHeartBeat()

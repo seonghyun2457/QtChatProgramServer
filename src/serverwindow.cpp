@@ -74,13 +74,13 @@ void ServerWindow::on_btnStart_clicked()
     if (mServer.isListening()) {
         textMsg = "Server is listening now.\n\nAddress: " + mServer.serverAddress().toString() + "\nPort: " + QString::number(mServer.serverPort());
         mUi->lbStatus->setText(textMsg);
+
+        // Do not allow to change GUI
+        mUi->cbIP->setDisabled(true);
+        mUi->lePort->setReadOnly(true);
     } else {
         mUi->lbStatus->setText(mServer.errorString());
     }
-
-    // Do not allow to change GUI
-    mUi->cbIP->setDisabled(true);
-    mUi->lePort->setReadOnly(true);
 }
 
 void ServerWindow::on_btnStop_clicked()

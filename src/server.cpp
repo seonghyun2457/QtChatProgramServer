@@ -57,7 +57,7 @@ void Server::quit()
         pSocket->disconnect();
 
         // Abort socket
-        QMetaObject::invokeMethod(pSocket, [pSocket]() { pSocket->abort(); }, Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(pSocket, [pSocket]() { pSocket->abort(); }, Qt::QueuedConnection);
 
         // Delete Client Thread when thread is termianted
         QObject::connect(aClientThread, &QThread::finished, aClientThread, &QObject::deleteLater);
