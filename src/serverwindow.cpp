@@ -38,16 +38,12 @@ ServerWindow::~ServerWindow()
 
 void ServerWindow::on_cbIP_currentTextChanged(const QString &arg1)
 {
-    qDebug() << "on_cbIP_currentTextChanged";
     mIPv4 = arg1;
-    qDebug() << "mIPv4: " << mIPv4;
 }
 
 void ServerWindow::on_lePort_textChanged(const QString &arg1)
 {
-    qDebug() << "on_lePort_textEdited";
     mPort = arg1;
-    qDebug() << "mPort: " << mPort;
 }
 
 void ServerWindow::on_btnStart_clicked()

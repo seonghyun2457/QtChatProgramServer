@@ -1,7 +1,7 @@
 #include "server.h"
 
 #include <QNetworkInterface>
-#include <QThread>
+//#include <QThread>
 #include <QDebug>
 
 Server::Server(QObject *parent)
@@ -50,29 +50,14 @@ void Server::start(const QString &iAddress, const quint16 iPort)
 void Server::quit()
 {
     // Disconnect clients
-    for (ClientThread* aClientThread : mClientThreads) {
-        ClientSocket* pSocket = aClientThread->getClientSocket();
-
-        // Disconnect all signals
-        pSocket->disconnect();
-
-        // Abort socket
-        QMetaObject::invokeMethod(pSocket, [pSocket]() { pSocket->abort(); }, Qt::QueuedConnection);
-
-        // Delete Client Thread when thread is termianted
-        QObject::connect(aClientThread, &QThread::finished, aClientThread, &QObject::deleteLater);
-
-        // Terminate thread
-        aClientThread->quit();
-
-        // Wait until thread is terminated
-        aClientThread->wait();
-
-        qDebug() << "A client disconnected";
+    for (ClientSocket* pClient : mClients) {
+        pClient->disconnect();
+        pClient->abort();
+        pClient->deleteLater();
     }
 
     // clear thread list
-    mClientThreads.clear();
+    mClients.clear();
 
     // Close server
     close();
@@ -81,27 +66,12 @@ void Server::quit()
 
 void Server::disconnectClient()
 {
-    ClientSocket* pClientSocket = static_cast<ClientSocket*>(sender());
+    ClientSocket* pSenderClient = static_cast<ClientSocket*>(sender());
 
-    auto clientThreadIt = mClientThreads.begin();
-    while (clientThreadIt != mClientThreads.end()) {
-        if ((*clientThreadIt)->getClientSocket() == pClientSocket) {
-
-            ClientThread* pClientThread = *clientThreadIt;
-            qDebug() << "Client socket disconnected. Removing from list.";
-
-            mClientThreads.erase(clientThreadIt);
-
-            // Delete Client Thread when thread is termianted
-            QObject::connect(pClientThread, &QThread::finished, pClientThread, &QObject::deleteLater);
-
-            // Terminate thread
-            pClientThread->quit();
-            break;
-        }
-        else {
-            ++clientThreadIt;
-        }
+    if (pSenderClient) {
+        mClients.remove(pSenderClient);
+        pSenderClient->deleteLater();
+        qDebug() << "Client socket disconnected and removed from list. Total clients:" << mClients.size();
     }
 }
 
@@ -109,13 +79,11 @@ void Server::broadcast(const QByteArray &iMessage)
 {
     qDebug() << "Broadcasting message to all clients:" << iMessage;
 
-    ClientSocket* pClientSocket = static_cast<ClientSocket*>(sender());
+    ClientSocket* pSenderClient = static_cast<ClientSocket*>(sender());
 
-    for (const auto& clientThread : mClientThreads) {
-        if (clientThread->getClientSocket() != pClientSocket) {
-
-            // call send method in different thread
-            QMetaObject::invokeMethod(clientThread->getClientSocket(), "send", Qt::QueuedConnection, Q_ARG(QByteArray, iMessage));
+    for (ClientSocket* pClient : mClients) {
+        if (pSenderClient != pClient) {
+            pClient->send(iMessage);
         }
     }
 }
@@ -124,17 +92,17 @@ void Server::incomingConnection(qintptr socketDescriptor)
 {
     qInfo() << "Incomming connection " << socketDescriptor << " on " << QThread::currentThread();
 
-    // Create a new client thread
-    ClientThread* pClientThread = new ClientThread(socketDescriptor);
+    // Create a new client socket
+    ClientSocket* pClientSocket = new ClientSocket(this);
 
     // CONNECT
-    QObject::connect(pClientThread->getClientSocket(), &QTcpSocket::disconnected, this, &Server::disconnectClient);
-    QObject::connect(pClientThread->getClientSocket(), &ClientSocket::broadcast, this, &Server::broadcast, Qt::QueuedConnection);
+    QObject::connect(pClientSocket, &QTcpSocket::disconnected, this, &Server::disconnectClient);
+    QObject::connect(pClientSocket, &ClientSocket::broadcast, this, &Server::broadcast);
 
-    // Run client thread
-    pClientThread->start();
+    // Initialize socket
+    pClientSocket->initSocket(socketDescriptor);
 
-    // Move new client thread to thread list
-    mClientThreads.push_back(pClientThread);
+    // Push a client to clients list
+    mClients.push_back(pClientSocket);
 }
 

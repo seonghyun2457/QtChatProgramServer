@@ -14,7 +14,7 @@ ClientSocket::ClientSocket(QObject *parent)
     connect(this, &QTcpSocket::connected, this, &ClientSocket::connected);
     connect(this, &QTcpSocket::disconnected, this, &ClientSocket::disconnected);
     connect(this, &QTcpSocket::stateChanged, this, &ClientSocket::stateChanged);
-    connect(this, &QTcpSocket::readyRead, this, &ClientSocket::readyRead, Qt::QueuedConnection);
+    connect(this, &QTcpSocket::readyRead, this, &ClientSocket::readyRead);
     connect(this, &QTcpSocket::errorOccurred, this, &ClientSocket::error);
 }
 

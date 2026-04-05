@@ -7,7 +7,6 @@
 #include <QThread>
 
 #include "clientsocket.h"
-#include "clientthread.h"
 
 class Server : public QTcpServer
 {
@@ -28,7 +27,7 @@ private slots:
     void broadcast(const QByteArray& iMessage);
 
 private:
-    std::list<ClientThread*> mClientThreads;
+    std::list<ClientSocket*> mClients;
 
 protected:
     virtual void incomingConnection(qintptr socketDescriptor) override;
