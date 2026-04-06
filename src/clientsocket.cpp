@@ -9,6 +9,7 @@ ClientSocket::ClientSocket(QObject *parent)
     , mHeartBeatTimer(nullptr)
     , mHeartBeatCount(0)
     , mHEARTBEAT_INTERVAL_SECOND(10 * 1000)
+    , mExpectedMessageSize(0)
 {
     // CONNECT
     connect(this, &QTcpSocket::connected, this, &ClientSocket::connected);
@@ -17,12 +18,6 @@ ClientSocket::ClientSocket(QObject *parent)
     connect(this, &QTcpSocket::readyRead, this, &ClientSocket::readyRead);
     connect(this, &QTcpSocket::errorOccurred, this, &ClientSocket::error);
 }
-
-ClientSocket::~ClientSocket()
-{
-
-}
-
 
 bool ClientSocket::isConnected() const
 {
@@ -66,7 +61,8 @@ void ClientSocket::initSocket(const qintptr socketDescriptor)
 void ClientSocket::send(const QByteArray& iMessage)
 {
     qDebug() << "iMessage: " << iMessage;
-    write(iMessage);
+
+    writePacket(iMessage);
 }
 
 void ClientSocket::connected()
@@ -96,17 +92,47 @@ void ClientSocket::readyRead()
     mHeartBeatCount = 0;
     mHeartBeatTimer->start(mHEARTBEAT_INTERVAL_SECOND); // mHEARTBEAT_INTERVAL_SECOND invertal
 
-    qDebug() << "Data from: " << sender() << " bytes: " << bytesAvailable();
-    QByteArray rawReadData = readAll();
+    // Push message to buffer
+    mBuffer.append(readAll());
+    qDebug() << "mBuffer: " << mBuffer;
 
-    QString message = QString::fromUtf8(rawReadData);
-    qDebug() << "message: " << message;
+    // Parse message
+    while (true) {
+        // If we don't know message size
+        if (mExpectedMessageSize == 0) {
+            if (mBuffer.size() < sizeof(quint32)) {
+                break;
+            }
 
-    if (message == "Client: heartbeat pong\n") {
-        return;
+            // Read header (4 Bytes)
+            QDataStream stream(mBuffer);
+            stream >> mExpectedMessageSize;
+            qDebug() << "mBuffer: " << mBuffer;
+
+            // Delete header from buffer
+            mBuffer.remove(0, sizeof(quint32));
+        }
+
+        // We know message size but the whole message isn't given yet
+        if (mBuffer.size() < mExpectedMessageSize) {
+            break;
+        }
+
+        // Whole message is given    
+        QByteArray messageData = mBuffer.sliced(0, mExpectedMessageSize);
+        mBuffer.remove(0, mExpectedMessageSize);
+        mExpectedMessageSize = 0;
+
+        QString message = QString::fromUtf8(messageData);
+        qDebug() << "Parsed complete message from " << peerAddress().toString() << ":" << message;
+
+        // Heartbeat
+        if (message == "Client: heartbeat pong\n") {
+            continue;
+        }
+
+        emit broadcast(messageData);
     }
-
-    emit broadcast(rawReadData);
 }
 
 void ClientSocket::sendHeartBeat()
@@ -118,8 +144,18 @@ void ClientSocket::sendHeartBeat()
     }
 
     qDebug() << "Sending heartbeat (ping) to client. Miss count: " << mHeartBeatCount;
-    write("Server: heartbeat ping\n");
+    writePacket("Server: heartbeat ping\n");
 
     mHeartBeatCount++;
+}
+
+void ClientSocket::writePacket(const QByteArray &iMessage)
+{
+    // packet = header(4bytes) + message
+    QByteArray packet;
+    QDataStream stream(&packet, QIODevice::WriteOnly);
+    stream << static_cast<quint32>(iMessage.size());
+    packet.append(iMessage);
+    write(packet);
 }
 

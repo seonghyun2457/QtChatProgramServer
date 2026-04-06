@@ -13,7 +13,7 @@ class ClientSocket : public QTcpSocket
     Q_OBJECT
 public:
     explicit ClientSocket(QObject *parent = nullptr);
-    virtual ~ClientSocket();
+    virtual ~ClientSocket() = default;
 
     bool isConnected() const;
 
@@ -34,9 +34,17 @@ private slots:
     void sendHeartBeat();
 
 private:
+    void writePacket(const QByteArray& iMessage);
+
+private:
+    // Heartbeat
     const uint32_t mHEARTBEAT_INTERVAL_SECOND;
     QTimer* mHeartBeatTimer;
     uint16_t mHeartBeatCount;
+
+    // Message parsing
+    QByteArray mBuffer;
+    quint32 mExpectedMessageSize;
 };
 
 #endif // CLIENTSOCKET_H
