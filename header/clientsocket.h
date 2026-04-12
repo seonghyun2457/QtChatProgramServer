@@ -6,6 +6,8 @@
 #include <QTimer>
 #include <QDebug>
 
+#include "packetHeader.h"
+
 class Server;
 
 class ClientSocket : public QTcpSocket
@@ -22,7 +24,7 @@ signals:
 
 public slots:
     void initSocket(const qintptr socketDescriptor);
-    void send(const QByteArray& iMessage);
+    void send(const QByteArray& iPacket);
 
 private slots:
     void connected();
@@ -34,7 +36,7 @@ private slots:
     void sendHeartBeat();
 
 private:
-    void writePacket(const QByteArray& iMessage);
+    void writePacket(const ePacketType iPacketType, const QByteArray& iPayload);
 
 private:
     // Heartbeat
@@ -44,7 +46,6 @@ private:
 
     // Message parsing
     QByteArray mBuffer;
-    quint32 mExpectedMessageSize;
 };
 
 #endif // CLIENTSOCKET_H
