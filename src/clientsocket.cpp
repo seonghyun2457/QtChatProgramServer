@@ -4,6 +4,8 @@
 #include <QAbstractSocket>
 #include <QMetaEnum>
 
+const QString ClientSocket::s_heartbeatMessage = "heartbeat ping";
+
 ClientSocket::ClientSocket(QObject *parent)
     : QTcpSocket{parent}
     , mHeartBeatTimer(nullptr)
@@ -95,37 +97,23 @@ void ClientSocket::readyRead()
     qDebug() << "mBuffer: " << mBuffer;
 
     // Parse message
-    while (true) {
-        // Read header
-        PacketHeader header;
-        const char* pData = mBuffer.data();
-        memcpy(&header, pData, sizeof(PacketHeader));
+    // Read header
+    PacketHeader header;
+    const char* pData = mBuffer.data();
+    memcpy(&header, pData, sizeof(PacketHeader));
 
-        // If we don't know message size
-        if (header.packetSize == 0) {
-            if (mBuffer.size() < sizeof(PacketHeader)) {
-                break;
-            }
-        }
+    // Whole message is given
+    QByteArray broadcastingData(mBuffer);
+    mBuffer.remove(0, sizeof(PacketHeader) + header.packetSize);
 
-        // We know message size but the whole message isn't given yet
-        if (mBuffer.size() < header.packetSize + sizeof(PacketHeader)) {
-            break;
-        }
+    qDebug() << "Parsed complete message from " << peerAddress().toString() << ":" << broadcastingData;
 
-        // Whole message is given
-        QByteArray broadcastingData(mBuffer);
-        mBuffer.clear();
-
-        qDebug() << "Parsed complete message from " << peerAddress().toString() << ":" << broadcastingData;
-
-        // Heartbeat
-        if (header.packetType == ePacketType::Heartbeat) {
-            break;
-        }
-
-        emit broadcast(broadcastingData);
+    // Heartbeat
+    if (header.packetType == ePacketType::Heartbeat) {
+        return;
     }
+
+    emit broadcast(broadcastingData);
 }
 
 void ClientSocket::sendHeartBeat()
@@ -137,34 +125,25 @@ void ClientSocket::sendHeartBeat()
     }
 
     qDebug() << "Sending heartbeat (ping) to client. Miss count: " << mHeartBeatCount;
-    writePacket(ePacketType::Heartbeat, "Server: heartbeat ping\n");
+
+
+    PacketHeader header;
+    header.packetType = ePacketType::Heartbeat;
+    header.packetSize = s_heartbeatMessage.size();
+    qstrncpy(header.senderNickName, "Server", sizeof(header.senderNickName));
+    memset(header.fileName, 0, sizeof(header.fileName));
+    writePacket(header, s_heartbeatMessage.toUtf8());
 
     mHeartBeatCount++;
 }
 
-void ClientSocket::writePacket(const ePacketType iPacketType, const QByteArray &iPayload)
+void ClientSocket::writePacket(const PacketHeader iPacketHeader, const QByteArray &iPayload)
 {
-    PacketHeader packetHeader;
-    packetHeader.packetType = iPacketType;
-    packetHeader.packetSize = iPayload.size();
-
-    switch (iPacketType) {
-    case ePacketType::Heartbeat:
-        break;
-    case ePacketType::TextMessage:
-        break;
-    case ePacketType::File:
-        break;
-    default:
-        qCritical() << "Invalid packet type.";
-        return;
-    }
-
     // packet = header + payload
     QByteArray packet;
-    packet.reserve(sizeof(PacketHeader) + packetHeader.packetSize);
+    packet.reserve(sizeof(PacketHeader) + iPacketHeader.packetSize);
 
-    packet.append((char*)&packetHeader, sizeof(PacketHeader));
+    packet.append((char*)&iPacketHeader, sizeof(PacketHeader));
     packet.append(iPayload);
 
     write(packet);

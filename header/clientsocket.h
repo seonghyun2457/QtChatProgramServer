@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QTcpSocket>
 #include <QTimer>
+#include <QtGlobal>
 #include <QDebug>
 
 #include "packetHeader.h"
@@ -36,7 +37,7 @@ private slots:
     void sendHeartBeat();
 
 private:
-    void writePacket(const ePacketType iPacketType, const QByteArray& iPayload);
+    void writePacket(const PacketHeader iPacketHeader, const QByteArray& iPayload);
 
 private:
     // Heartbeat
@@ -46,6 +47,9 @@ private:
 
     // Message parsing
     QByteArray mBuffer;
+
+public:
+    static const QString s_heartbeatMessage;
 };
 
 #endif // CLIENTSOCKET_H
